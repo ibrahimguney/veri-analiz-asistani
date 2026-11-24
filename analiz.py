@@ -114,8 +114,16 @@ def ornek_veri(n: int = 120, tohum: int = 42) -> pd.DataFrame:
     ).to_numpy()
     puan = np.clip(45 + 3 * calisma + etki + rng.normal(0, 10, n), 0, 100).round()
     memnuniyet = rng.integers(1, 6, n)
-    on_test = np.clip(rng.normal(55, 12, n), 0, 92).round()
-    son_test = on_test + rng.integers(5, 9, n)
+    on_test = np.clip(rng.normal(55, 12, n), 0, 92).round(1)
+    fark = rng.normal(6, 8, n).round(1)
+    aykiri = np.abs(fark) >= 100
+    while aykiri.any():
+        fark[aykiri] = rng.normal(6, 8, aykiri.sum()).round(1)
+        aykiri = np.abs(fark) >= 100
+    alt_sinir = np.ceil(np.maximum(0, -fark) * 10) / 10
+    ust_sinir = np.floor(np.minimum(100, 100 - fark) * 10) / 10
+    on_test = np.clip(on_test, alt_sinir, ust_sinir)
+    son_test = (on_test + fark).round(1)
     return pd.DataFrame(
         {
             "ogrenci_no": np.arange(1001, 1001 + n),

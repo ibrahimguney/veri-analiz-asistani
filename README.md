@@ -11,7 +11,8 @@ CSV veya Excel dosyanızı yükleyin, iki değişken seçin. Uygulama değişken
 
 **Ön test – son test** sekmesi, aynı satırdaki iki sayısal ölçümü eşleştirir.
 Örnek verideki `on_test_puani` ve `son_test_puani` sütunları varsayılan olarak seçilir;
-son test puanı ortalama 5–8 puan daha yüksektir.
+son test − ön test farkları ortalama yaklaşık 6, standart sapma yaklaşık 8 olacak
+şekilde normal dağılımdan üretilir; bu nedenle bazı öğrencilerin puanı düşer.
 Ölçüm farkları normal dağılıma uyuyorsa eşleştirilmiş t-testi ve Cohen's dᶻ,
 uymuyorsa Wilcoxon işaretli sıralar testi ve sıra-çift serili korelasyon kullanılır.
 Eksik veya sonlu olmayan ölçüm içeren çiftler çıkarılır; en az 5 geçerli çift gerekir.
