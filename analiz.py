@@ -176,6 +176,77 @@ def analiz(df: pd.DataFrame, x: str, y: str, alfa: float = 0.05) -> dict:
     return _grup_karsilastirma(df, grup, sayisal, alfa)
 
 
+def on_test_son_test(df: pd.DataFrame, on: str, son: str, alfa: float = 0.05) -> dict:
+    """Aynı satırdaki ön ve son ölçümleri, farkların dağılımına göre karşılaştırır."""
+    if on == son:
+        raise ValueError("Lütfen iki farklı sütun seçin.")
+    if not all(pd.api.types.is_numeric_dtype(df[c]) and
+               not pd.api.types.is_bool_dtype(df[c]) for c in (on, son)):
+        raise ValueError("Ön test ve son test sütunları sayısal olmalı.")
+
+    d = df[[on, son]].replace([np.inf, -np.inf], np.nan).dropna()
+    n = len(d)
+    if n < 5:
+        raise ValueError("Bu analiz için en az 5 geçerli ölçüm çifti gerekli.")
+    fark = d[son].to_numpy(dtype=float) - d[on].to_numpy(dtype=float)
+    if not np.isfinite(fark).all():
+        raise ValueError("Ölçüm farkları hesaplanamadı; değerlerin büyüklüğünü kontrol edin.")
+
+    notlar = ["Farklar son test eksi ön test olarak hesaplandı; aynı satırdaki ölçümler eşleştirildi."]
+    if len(df) != n:
+        notlar.append(f"Eksik veya sonlu olmayan değer içeren {len(df) - n} satır analizden çıkarıldı.")
+    if normal_mi(fark, alfa):
+        t, p = stats.ttest_1samp(fark, 0)
+        dz = fark.mean() / fark.std(ddof=1)
+        test = "Eşleştirilmiş t-testi"
+        ist = f"t({n - 1}) = {sayi(t)}"
+        etki = f"Cohen's dᶻ = {sayi(abs(dz))} ({_buyukluk_d(dz)})"
+        notlar.append("Ölçüm farkları normal dağılıma uyduğu için eşleştirilmiş t-testi kullanıldı.")
+        notlar.append("Cohen's dᶻ, ortalama farkın farkların standart sapmasına bölümüdür.")
+    else:
+        sifir_olmayan = fark[fark != 0]
+        if len(sifir_olmayan):
+            w, p = stats.wilcoxon(fark, alternative="two-sided")
+            siralar = stats.rankdata(abs(sifir_olmayan))
+            r = (siralar[sifir_olmayan > 0].sum() -
+                 siralar[sifir_olmayan < 0].sum()) / siralar.sum()
+        else:
+            w, p, r = 0.0, 1.0, 0.0
+        test = "Wilcoxon işaretli sıralar testi"
+        ist = f"W = {sayi(w, 1)}"
+        etki = f"Sıra-çift serili r = {sayi(abs(r))} ({_buyukluk_r(r)})"
+        if np.ptp(fark) == 0:
+            notlar.append("Farklar sabit olduğundan normallik değerlendirilemez; Wilcoxon yöntemi kullanıldı.")
+        else:
+            notlar.append("Ölçüm farkları normal dağılıma uymadığı için Wilcoxon testi kullanıldı.")
+        notlar.append("Sıra-çift serili r, sıfır olmayan farkların pozitif ve negatif sıra toplamlarından hesaplandı.")
+        notlar.append("Wilcoxon testi farkların sıfır çevresinde simetrik olduğunu varsayar.")
+        if not len(sifir_olmayan):
+            notlar.append("Tüm farklar sıfır olduğu için test istatistiği 0 ve p değeri 1 olarak gösterildi.")
+
+    anlamli = p < alfa
+    durum = "anlamlı bir fark var" if anlamli else "anlamlı bir fark bulunmadı"
+    yorum = [
+        f"'{on}' ile '{son}' ölçümleri arasında istatistiksel olarak {durum} "
+        f"({ist}, {p_yaz(p)}).",
+        f"Ortalama değişim (son test − ön test) {sayi(fark.mean())}; "
+        f"medyan değişim {sayi(np.median(fark))}.",
+    ]
+    ozet = pd.DataFrame({
+        "Ölçüm": ["Ön test", "Son test"],
+        "Değişken": [on, son],
+        "n": [n, n],
+        "Ortalama": [d[on].mean(), d[son].mean()],
+        "Std. sapma": [d[on].std(), d[son].std()],
+        "Medyan": [d[on].median(), d[son].median()],
+    })
+    return {
+        "tur": "eslestirilmis", "test": test, "n": n, "istatistik": ist,
+        "p": p, "anlamli": anlamli, "etki": etki, "yorum": yorum,
+        "notlar": notlar, "tablolar": {"Ölçüm özeti": ozet}, "x": on, "y": son,
+    }
+
+
 def _korelasyon(df, x, y, alfa):
     d = df[[x, y]].apply(pd.to_numeric, errors="coerce").dropna()
     n = len(d)

@@ -9,7 +9,14 @@ CSV veya Excel dosyanızı yükleyin, iki değişken seçin. Uygulama değişken
 | Kategorik (3+ grup) × sayısal | ANOVA + η² + Tukey | Kruskal-Wallis + Bonferroni |
 | Kategorik × kategorik | Ki-kare + Cramér's V | (2×2 ve düşük frekansta) Fisher |
 
-Normallik Shapiro-Wilk testiyle kontrol edilir.
+**Ön test – son test** sekmesi, aynı satırdaki iki sayısal ölçümü eşleştirir.
+Ölçüm farkları normal dağılıma uyuyorsa eşleştirilmiş t-testi ve Cohen's dᶻ,
+uymuyorsa Wilcoxon işaretli sıralar testi ve sıra-çift serili korelasyon kullanılır.
+Eksik veya sonlu olmayan ölçüm içeren çiftler çıkarılır; en az 5 geçerli çift gerekir.
+Wilcoxon testi farkların sıfır çevresinde simetrik olduğunu varsayar.
+
+Normallik 5.000 gözleme kadar Shapiro-Wilk, daha büyük örneklemlerde
+normaltest ile kontrol edilir. Sabit farklarda normallik değerlendirilemez.
 
 ## Dosyalar
 
@@ -43,7 +50,6 @@ print("\n".join(s["yorum"]))
 
 ## Geliştirme fikirleri (Copilot ile)
 
-- Eşleştirilmiş t-testi (ön test / son test)
 - Çoklu doğrusal regresyon sekmesi
 - Raporu Word/PDF olarak indirme
 - Güvenirlik analizi (Cronbach alfa) ve Likert ölçek desteği

@@ -45,8 +45,9 @@ else:
 
 turler = {c: A.degisken_turu(df[c]) for c in df.columns}
 
-sekme_veri, sekme_betimsel, sekme_analiz = st.tabs(
-    ["🗂️ Veri", "📈 Betimsel istatistikler", "🔍 İki değişkenli analiz"]
+sekme_veri, sekme_betimsel, sekme_analiz, sekme_on_son = st.tabs(
+    ["🗂️ Veri", "📈 Betimsel istatistikler", "🔍 İki değişkenli analiz",
+     "📝 Ön test – son test"]
 )
 
 # ------------------------------------------------------------------ veri
@@ -91,6 +92,44 @@ with sekme_betimsel:
         k1.dataframe(fr, width="stretch", hide_index=True)
         k2.plotly_chart(px.bar(fr, x="Kategori", y="Frekans", text="Yüzde"),
                         width="stretch")
+
+# ------------------------------------------------------------------ ön test – son test
+with sekme_on_son:
+    st.write("Aynı kişilerin ön ve son ölçümlerini içeren iki sayısal sütun seçin. "
+             "Her satır bir ölçüm çiftini temsil etmelidir.")
+    sayisal_sutunlar = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])
+                        and not pd.api.types.is_bool_dtype(df[c])]
+    if len(sayisal_sutunlar) < 2:
+        st.warning("Bu analiz için en az iki sayısal sütun gerekli.")
+    else:
+        s1, s2 = st.columns(2)
+        on = s1.selectbox("Ön test sütunu", sayisal_sutunlar)
+        son = s2.selectbox("Son test sütunu", sayisal_sutunlar, index=1)
+        try:
+            esli_sonuc = A.on_test_son_test(df, on, son, alfa)
+        except ValueError as e:
+            st.warning(str(e))
+        else:
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Kullanılan test", esli_sonuc["test"])
+            m2.metric("Test istatistiği", esli_sonuc["istatistik"])
+            m3.metric("Anlamlılık", A.p_yaz(esli_sonuc["p"]))
+            m4.metric("Ölçüm çifti", esli_sonuc["n"])
+            kutu = st.success if esli_sonuc["anlamli"] else st.warning
+            kutu("**Sonuç:** " + " ".join(esli_sonuc["yorum"]))
+            st.write(f"**Etki büyüklüğü:** {esli_sonuc['etki']}")
+            for ad, tablo in esli_sonuc["tablolar"].items():
+                st.subheader(ad)
+                st.dataframe(tablo.round(3), width="stretch", hide_index=True)
+            with st.expander("Neden bu test seçildi?"):
+                for not_ in esli_sonuc["notlar"]:
+                    st.write("• " + not_)
+            st.download_button(
+                "📄 Ön test – son test raporunu indir (Markdown)",
+                data=A.rapor_md(esli_sonuc, alfa),
+                file_name=f"rapor_{on}_{son}.md",
+                mime="text/markdown",
+            )
 
 # ------------------------------------------------------------------ analiz
 with sekme_analiz:
