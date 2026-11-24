@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import analiz as A
+import rapor as R
 
 st.set_page_config(page_title="Veri Analiz Asistanı", page_icon="📊", layout="wide")
 st.title("📊 Veri Analiz Asistanı")
@@ -18,6 +19,10 @@ st.caption("Verinizi yükleyin. Uygun istatistiksel testi seçip sonucu sade Tü
 @st.cache_data
 def yukle(ad: str, icerik: bytes) -> pd.DataFrame:
     return A.dosya_oku(ad, icerik)
+
+
+if "rapor_analizleri" not in st.session_state:
+    st.session_state["rapor_analizleri"] = []
 
 
 # ------------------------------------------------------------------ kenar çubuğu
@@ -42,6 +47,38 @@ else:
     kaynak = "örnek veri"
     st.info("Şu an **örnek veri** gösteriliyor (üç öğretim yönteminin sınav puanına etkisi). "
             "Kendi verinizi soldaki panelden yükleyebilirsiniz.")
+
+with st.sidebar:
+    st.header("Word raporu")
+    rapor_baslik = st.text_input("Rapor başlığı", value="Veri Analiz Raporu")
+    rapor_yazar = st.text_input("Yazar adı", value="")
+    st.subheader("Rapordaki analizler")
+    for i, item in enumerate(st.session_state["rapor_analizleri"]):
+        sol, sag = st.columns([5, 1])
+        sol.caption(item["baslik"])
+        if sag.button("✖", key=f"rapor_sil_{i}", help="Analizi rapordan sil"):
+            st.session_state["rapor_analizleri"].pop(i)
+            st.rerun()
+    if st.button("Raporu temizle", disabled=not st.session_state["rapor_analizleri"]):
+        st.session_state["rapor_analizleri"].clear()
+        st.rerun()
+    kaynaklar = list(dict.fromkeys(
+        (item.get("kaynak", kaynak), item.get("gozlem", len(df)))
+        for item in st.session_state["rapor_analizleri"]
+    ))
+    rapor_kaynagi = ", ".join(ad for ad, _ in kaynaklar) if kaynaklar else kaynak
+    rapor_gozlem = (kaynaklar[0][1] if len(kaynaklar) == 1 else
+                    "; ".join(f"{ad}: {n}" for ad, n in kaynaklar) if kaynaklar else len(df))
+    rapor_icerik = (R.word_raporu(st.session_state["rapor_analizleri"], rapor_baslik,
+                                  rapor_yazar, rapor_kaynagi, rapor_gozlem)
+                    if st.session_state["rapor_analizleri"] else b"")
+    st.download_button(
+        "📄 Word raporu indir",
+        data=rapor_icerik,
+        file_name="analiz_raporu.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        disabled=not st.session_state["rapor_analizleri"],
+    )
 
 turler = {c: A.degisken_turu(df[c]) for c in df.columns}
 
@@ -137,6 +174,15 @@ with sekme_on_son:
                 file_name=f"rapor_{on}_{son}.md",
                 mime="text/markdown",
             )
+            if st.button("➕ Rapora ekle", key="rapora_ekle_eslestirilmis"):
+                st.session_state["rapor_analizleri"].append({
+                    "baslik": f"Ön test – son test: {on} ve {son}",
+                    "sonuc": esli_sonuc,
+                    "veri": df[[on, son]].copy(),
+                    "kaynak": kaynak,
+                    "gozlem": len(df),
+                })
+                st.rerun()
 
 # ------------------------------------------------------------------ çoklu regresyon
 with sekme_regresyon:
@@ -191,6 +237,15 @@ with sekme_regresyon:
                 file_name=f"rapor_regresyon_{bagimli}.md",
                 mime="text/markdown",
             )
+            if st.button("➕ Rapora ekle", key="rapora_ekle_regresyon"):
+                st.session_state["rapor_analizleri"].append({
+                    "baslik": f"Çoklu regresyon: {bagimli}",
+                    "sonuc": regresyon,
+                    "veri": df[[bagimli] + bagimsizlar].copy(),
+                    "kaynak": kaynak,
+                    "gozlem": len(df),
+                })
+                st.rerun()
 
 # ------------------------------------------------------------------ analiz
 with sekme_analiz:
@@ -251,3 +306,12 @@ with sekme_analiz:
         file_name=f"rapor_{gx}_{gy}.md",
         mime="text/markdown",
     )
+    if st.button("➕ Rapora ekle", key="rapora_ekle_iki_degisken"):
+        st.session_state["rapor_analizleri"].append({
+            "baslik": f"İki değişkenli analiz: {gx} ve {gy}",
+            "sonuc": sonuc,
+            "veri": df[[gx, gy]].copy(),
+            "kaynak": kaynak,
+            "gozlem": len(df),
+        })
+        st.rerun()
