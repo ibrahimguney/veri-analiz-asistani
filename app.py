@@ -45,9 +45,9 @@ else:
 
 turler = {c: A.degisken_turu(df[c]) for c in df.columns}
 
-sekme_veri, sekme_betimsel, sekme_analiz, sekme_on_son = st.tabs(
+sekme_veri, sekme_betimsel, sekme_analiz, sekme_on_son, sekme_regresyon = st.tabs(
     ["🗂️ Veri", "📈 Betimsel istatistikler", "🔍 İki değişkenli analiz",
-     "📝 Ön test – son test"]
+     "📝 Ön test – son test", "📐 Çoklu regresyon"]
 )
 
 # ------------------------------------------------------------------ veri
@@ -135,6 +135,60 @@ with sekme_on_son:
                 "📄 Ön test – son test raporunu indir (Markdown)",
                 data=A.rapor_md(esli_sonuc, alfa),
                 file_name=f"rapor_{on}_{son}.md",
+                mime="text/markdown",
+            )
+
+# ------------------------------------------------------------------ çoklu regresyon
+with sekme_regresyon:
+    st.write("Sayısal bir bağımlı değişken ve bir veya daha fazla bağımsız değişken seçin. "
+             "En fazla 6 farklı değeri olan sayısal bağımsız değişkenler kategorik kabul edilir.")
+    sayisal_sutunlar = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])
+                        and not pd.api.types.is_bool_dtype(df[c])]
+    if not sayisal_sutunlar:
+        st.warning("Regresyon için sayısal bir bağımlı değişken gerekli.")
+    else:
+        varsayilan_y = "sinav_puani" if "sinav_puani" in sayisal_sutunlar else sayisal_sutunlar[0]
+        bagimli = st.selectbox("Bağımlı değişken", sayisal_sutunlar,
+                               index=sayisal_sutunlar.index(varsayilan_y))
+        secenekler = [c for c in df.columns if c != bagimli]
+        varsayilan_x = [c for c in ("haftalik_calisma_saati", "yontem", "cinsiyet")
+                        if c in secenekler]
+        bagimsizlar = st.multiselect("Bağımsız değişkenler", secenekler, default=varsayilan_x)
+        try:
+            regresyon = A.coklu_regresyon(df, bagimli, bagimsizlar, alfa)
+        except ValueError as e:
+            st.warning(str(e))
+        else:
+            ozet = regresyon["tablolar"]["Model özeti"].iloc[0]
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("R²", A.sayi(ozet["R²"], 3))
+            m2.metric("Düzeltilmiş R²", A.sayi(ozet["Düzeltilmiş R²"], 3))
+            m3.metric("F testi", f"F = {A.sayi(ozet['F'])}, {A.p_yaz(ozet['F p'])}")
+            m4.metric("Regresyon gözlem sayısı", regresyon["n"])
+            kutu = st.success if regresyon["anlamli"] else st.warning
+            kutu("**Sonuç:** " + " ".join(regresyon["yorum"]))
+            for ad, tablo in regresyon["tablolar"].items():
+                st.subheader(ad)
+                st.dataframe(tablo.round(3), width="stretch", hide_index=True)
+            st.subheader("Varsayım kontrolleri ve yöntem notları")
+            for not_ in regresyon["notlar"]:
+                if not_.startswith(("Uyarı:", "Ciddi uyarı:")):
+                    st.warning(not_)
+                else:
+                    st.write("• " + not_)
+            grafik_veri = pd.DataFrame({"Tahmin edilen değer": regresyon["tahmin"],
+                                       "Artık": regresyon["artik"]})
+            st.subheader("Artıklar ve tahmin edilen değerler")
+            fig = px.scatter(grafik_veri, x="Tahmin edilen değer", y="Artık", opacity=0.7)
+            fig.add_hline(y=0)
+            st.plotly_chart(fig, width="stretch")
+            st.subheader("Artıkların histogramı")
+            st.plotly_chart(px.histogram(grafik_veri, x="Artık", nbins=25),
+                            width="stretch")
+            st.download_button(
+                "📄 Çoklu regresyon raporunu indir (Markdown)",
+                data=A.rapor_md(regresyon, alfa),
+                file_name=f"rapor_regresyon_{bagimli}.md",
                 mime="text/markdown",
             )
 

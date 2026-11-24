@@ -18,8 +18,17 @@ uymuyorsa Wilcoxon işaretli sıralar testi ve sıra-çift serili korelasyon kul
 Eksik veya sonlu olmayan ölçüm içeren çiftler çıkarılır; en az 5 geçerli çift gerekir.
 Wilcoxon testi farkların sıfır çevresinde simetrik olduğunu varsayar.
 
+**Çoklu regresyon** sekmesi, sayısal bir bağımlı değişkeni birden çok sayısal
+veya kategorik yordayıcıyla OLS kullanarak inceler. En fazla 6 farklı değeri
+olan sayısal yordayıcılar kategorik kabul edilir; ilk kategori referanstır.
+Eksik veya sonlu olmayan değer içeren satırlar çıkarılır. Katsayılar, R², F testi,
+Shapiro-Wilk, Breusch-Pagan ve VIF sonuçları gösterilir; değişen varyansta HC3
+dayanıklı standart hatalar da hesaplanır. Sonuçlar nedensellik göstermez.
+
 Normallik 5.000 gözleme kadar Shapiro-Wilk, daha büyük örneklemlerde
-normaltest ile kontrol edilir. Sabit farklarda normallik değerlendirilemez.
+ön test – son test analizinde normaltest ile kontrol edilir. Regresyonda
+Shapiro-Wilk p değeri 5.000'den fazla gözlemde yaklaşık olabilir. Sabit farklarda
+normallik değerlendirilemez.
 
 ## Dosyalar
 
@@ -37,7 +46,7 @@ streamlit run app.py
 ## Colab'da analiz modülünü kullanma
 
 ```python
-!pip install -q scipy pandas tabulate
+!pip install -q scipy pandas tabulate statsmodels
 import analiz as A          # analiz.py dosyasını Colab'a yükledikten sonra
 df = A.ornek_veri()
 s = A.analiz(df, "yontem", "sinav_puani")
@@ -53,6 +62,5 @@ print("\n".join(s["yorum"]))
 
 ## Geliştirme fikirleri (Copilot ile)
 
-- Çoklu doğrusal regresyon sekmesi
 - Raporu Word/PDF olarak indirme
 - Güvenirlik analizi (Cronbach alfa) ve Likert ölçek desteği
