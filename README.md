@@ -25,6 +25,11 @@ Eksik veya sonlu olmayan değer içeren satırlar çıkarılır. Katsayılar, R�
 Shapiro-Wilk, Breusch-Pagan ve VIF sonuçları gösterilir; değişen varyansta HC3
 dayanıklı standart hatalar da hesaplanır. Sonuçlar nedensellik göstermez.
 
+İki değişkenli analiz, ön test – son test ve çoklu regresyon sonuçlarını
+**➕ Rapora ekle** düğmesiyle kenar çubuğundaki sepette biriktirip tek bir
+APA 7 tarzı Word raporu olarak indirebilirsiniz. Rapor başlığı ve yazar adı
+ayarlanabilir; her analiz için tablo ve matplotlib grafiği eklenir.
+
 Normallik 5.000 gözleme kadar Shapiro-Wilk, daha büyük örneklemlerde
 ön test – son test analizinde normaltest ile kontrol edilir. Regresyonda
 Shapiro-Wilk p değeri 5.000'den fazla gözlemde yaklaşık olabilir. Sabit farklarda
@@ -34,6 +39,7 @@ normallik değerlendirilemez.
 
 - `app.py`: Streamlit arayüzü
 - `analiz.py`: Tüm istatistik fonksiyonları (arayüzden bağımsız, Colab'da da kullanılabilir)
+- `rapor.py`: APA tarzı Word raporu üretimi
 - `requirements.txt`: Gerekli paketler
 
 ## Bilgisayarda çalıştırma
@@ -62,5 +68,5 @@ print("\n".join(s["yorum"]))
 
 ## Geliştirme fikirleri (Copilot ile)
 
-- Raporu Word/PDF olarak indirme
+- Raporu PDF olarak indirme
 - Güvenirlik analizi (Cronbach alfa) ve Likert ölçek desteği
