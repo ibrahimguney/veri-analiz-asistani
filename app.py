@@ -102,9 +102,16 @@ with sekme_on_son:
     if len(sayisal_sutunlar) < 2:
         st.warning("Bu analiz için en az iki sayısal sütun gerekli.")
     else:
+        varsayilan_son = "son_test_puani" if "son_test_puani" in sayisal_sutunlar else None
+        varsayilan_on = ("on_test_puani" if "on_test_puani" in sayisal_sutunlar
+                         else next(c for c in sayisal_sutunlar if c != varsayilan_son))
+        if varsayilan_son is None:
+            varsayilan_son = next(c for c in sayisal_sutunlar if c != varsayilan_on)
         s1, s2 = st.columns(2)
-        on = s1.selectbox("Ön test sütunu", sayisal_sutunlar)
-        son = s2.selectbox("Son test sütunu", sayisal_sutunlar, index=1)
+        on = s1.selectbox("Ön test sütunu", sayisal_sutunlar,
+                          index=sayisal_sutunlar.index(varsayilan_on))
+        son = s2.selectbox("Son test sütunu", sayisal_sutunlar,
+                           index=sayisal_sutunlar.index(varsayilan_son))
         try:
             esli_sonuc = A.on_test_son_test(df, on, son, alfa)
         except ValueError as e:

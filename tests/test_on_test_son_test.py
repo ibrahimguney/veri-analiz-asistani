@@ -8,6 +8,20 @@ import analiz as A
 
 
 class OnTestSonTestTest(unittest.TestCase):
+    def test_ornek_veride_esli_puanlar(self):
+        for n in (1, 120, 1000):
+            for tohum in (0, 42, 99):
+                with self.subTest(n=n, tohum=tohum):
+                    df = A.ornek_veri(n=n, tohum=tohum)
+                    on = df["on_test_puani"]
+                    son = df["son_test_puani"]
+                    self.assertTrue(pd.api.types.is_numeric_dtype(on))
+                    self.assertTrue(pd.api.types.is_numeric_dtype(son))
+                    self.assertTrue(on.between(0, 100).all())
+                    self.assertTrue(son.between(0, 100).all())
+                    self.assertTrue(5 <= (son - on).mean() <= 8)
+                    pd.testing.assert_frame_equal(df, A.ornek_veri(n=n, tohum=tohum))
+
     def test_normal_farklarda_eslestirilmis_t_testi(self):
         rng = np.random.default_rng(42)
         on = rng.normal(50, 10, 100)

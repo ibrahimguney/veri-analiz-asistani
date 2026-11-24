@@ -9,6 +9,31 @@ import analiz as A
 
 
 class OnTestSonTestArayuzTest(unittest.TestCase):
+    def test_ornek_veride_varsayilan_puanlar(self):
+        app = AppTest.from_file("../app.py").run()
+        self.assertFalse(app.exception)
+        on = next(s for s in app.selectbox if s.label == "Ön test sütunu")
+        son = next(s for s in app.selectbox if s.label == "Son test sütunu")
+        self.assertEqual(on.value, "on_test_puani")
+        self.assertEqual(son.value, "son_test_puani")
+        self.assertTrue(any(m.label == "Ölçüm çifti" and m.value == "120" for m in app.metric))
+
+    def test_eksik_varsayilan_sutunlarda_farkli_secimler(self):
+        for silinecek in (["on_test_puani"], ["son_test_puani"],
+                          ["on_test_puani", "son_test_puani"]):
+            with self.subTest(silinecek=silinecek):
+                df = A.ornek_veri().drop(columns=silinecek)
+                with patch.object(A, "ornek_veri", return_value=df):
+                    app = AppTest.from_file("../app.py").run()
+                self.assertFalse(app.exception)
+                on = next(s for s in app.selectbox if s.label == "Ön test sütunu")
+                son = next(s for s in app.selectbox if s.label == "Son test sütunu")
+                self.assertNotEqual(on.value, son.value)
+                if "on_test_puani" not in silinecek:
+                    self.assertEqual(on.value, "on_test_puani")
+                if "son_test_puani" not in silinecek:
+                    self.assertEqual(son.value, "son_test_puani")
+
     def test_sayisal_az_kategorili_sutunlar_ve_bagimsiz_hata(self):
         df = A.ornek_veri()
         df["on"] = np.tile([1, 2, 3, 4], 30)
