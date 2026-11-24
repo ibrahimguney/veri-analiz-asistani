@@ -104,7 +104,7 @@ def _buyukluk_eta(e: float) -> str:
 
 # ---------------------------------------------------------------- örnek veri
 def ornek_veri(n: int = 120, tohum: int = 42) -> pd.DataFrame:
-    """Üç öğretim yönteminin sınav puanına etkisini içeren kurgusal veri."""
+    """Öğretim yöntemleri ve ön test–son test ölçümleri içeren kurgusal veri."""
     rng = np.random.default_rng(tohum)
     yontem = rng.choice(["Geleneksel", "Proje tabanlı", "Ters yüz"], n)
     cinsiyet = rng.choice(["Kız", "Erkek"], n)
@@ -113,6 +113,9 @@ def ornek_veri(n: int = 120, tohum: int = 42) -> pd.DataFrame:
         {"Geleneksel": 0, "Proje tabanlı": 7, "Ters yüz": 12}
     ).to_numpy()
     puan = np.clip(45 + 3 * calisma + etki + rng.normal(0, 10, n), 0, 100).round()
+    memnuniyet = rng.integers(1, 6, n)
+    on_test = np.clip(rng.normal(55, 12, n), 0, 92).round()
+    son_test = on_test + rng.integers(5, 9, n)
     return pd.DataFrame(
         {
             "ogrenci_no": np.arange(1001, 1001 + n),
@@ -121,7 +124,9 @@ def ornek_veri(n: int = 120, tohum: int = 42) -> pd.DataFrame:
             "haftalik_calisma_saati": calisma,
             "sinav_puani": puan,
             "durum": np.where(puan >= 70, "Geçti", "Kaldı"),
-            "memnuniyet_1_5": rng.integers(1, 6, n),
+            "memnuniyet_1_5": memnuniyet,
+            "on_test_puani": on_test,
+            "son_test_puani": son_test,
         }
     )
 

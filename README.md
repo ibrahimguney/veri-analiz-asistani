@@ -10,6 +10,8 @@ CSV veya Excel dosyanızı yükleyin, iki değişken seçin. Uygulama değişken
 | Kategorik × kategorik | Ki-kare + Cramér's V | (2×2 ve düşük frekansta) Fisher |
 
 **Ön test – son test** sekmesi, aynı satırdaki iki sayısal ölçümü eşleştirir.
+Örnek verideki `on_test_puani` ve `son_test_puani` sütunları varsayılan olarak seçilir;
+son test puanı ortalama 5–8 puan daha yüksektir.
 Ölçüm farkları normal dağılıma uyuyorsa eşleştirilmiş t-testi ve Cohen's dᶻ,
 uymuyorsa Wilcoxon işaretli sıralar testi ve sıra-çift serili korelasyon kullanılır.
 Eksik veya sonlu olmayan ölçüm içeren çiftler çıkarılır; en az 5 geçerli çift gerekir.
