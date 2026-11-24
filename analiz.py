@@ -15,6 +15,9 @@ import io
 import numpy as np
 import pandas as pd
 from scipy import stats
+import statsmodels.api as sm
+from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
 # ---------------------------------------------------------------- yardımcılar
@@ -187,6 +190,139 @@ def analiz(df: pd.DataFrame, x: str, y: str, alfa: float = 0.05) -> dict:
         return _ki_kare(df, x, y, alfa)
     grup, sayisal = (x, y) if tx == "kategorik" else (y, x)
     return _grup_karsilastirma(df, grup, sayisal, alfa)
+
+
+def coklu_regresyon(df: pd.DataFrame, y: str, xs: list[str], alfa: float = 0.05) -> dict:
+    """Tam gözlemlerle OLS ve artık/çoklu bağlantı kontrollerini hesaplar."""
+    if not xs or len(set(xs)) != len(xs) or y in xs:
+        raise ValueError("Bağımlı değişkenden farklı en az bir bağımsız değişken seçin.")
+    if not pd.api.types.is_numeric_dtype(df[y]) or pd.api.types.is_bool_dtype(df[y]):
+        raise ValueError("Bağımlı değişken sayısal olmalı.")
+    d = df[[y] + xs].replace([np.inf, -np.inf], np.nan).dropna()
+    n = len(d)
+    if n < 3:
+        raise ValueError("Bu analiz için en az 3 tam gözlem gerekli.")
+    if d[y].nunique() < 2:
+        raise ValueError("Bağımlı değişken sabit olmamalı.")
+
+    notlar = [f"Eksik veya sonlu olmayan değer içeren {len(df) - n} satır analizden çıkarıldı."]
+    sutunlar = [np.ones(n)]
+    bilgiler = [("Sabit", None, None, None)]
+    for x in xs:
+        if degisken_turu(d[x]) == "sayısal":
+            sutunlar.append(d[x].to_numpy(dtype=float))
+            bilgiler.append((x, x, None, None))
+        else:
+            kategoriler = pd.Categorical(d[x]).remove_unused_categories().categories
+            if len(kategoriler) < 2:
+                raise ValueError(f"'{x}' değişkeninde en az iki kategori olmalı.")
+            referans = kategoriler[0]
+            notlar.append(f"'{x}' için referans kategori: '{referans}'.")
+            for kategori in kategoriler[1:]:
+                sutunlar.append((d[x] == kategori).to_numpy(dtype=float))
+                bilgiler.append((f"{x}: {kategori}", x, kategori, referans))
+
+    tasarim = np.column_stack(sutunlar)
+    k = tasarim.shape[1]
+    if n <= k:
+        raise ValueError(f"Geçerli gözlem sayısı ({n}), parametre sayısından ({k}) büyük olmalı.")
+    if np.linalg.matrix_rank(tasarim) < k:
+        raise ValueError("Bağımsız değişkenler arasında tam doğrusal bağlantı var; "
+                         "bir veya daha fazla değişkeni çıkarın.")
+    if n < 10 * k:
+        notlar.append(f"Uyarı: {n} gözlem, {k} parametrenin 10 katından az.")
+
+    model = sm.OLS(d[y].to_numpy(dtype=float), tasarim).fit()
+    artik = model.resid
+    tahmin = model.fittedvalues
+    notlar.append("F testi ve R² değerleri klasik OLS modeline aittir.")
+    if np.ptp(artik) <= np.finfo(float).eps * max(1, np.max(np.abs(d[y]))) * 100:
+        notlar.append("Artıklar sabit veya sıfıra çok yakın; normallik ve değişen varyans değerlendirilemez.")
+        shapiro_p = bp_p = np.nan
+    else:
+        shapiro_p = stats.shapiro(artik).pvalue
+        if n > 5000:
+            notlar.append("Shapiro-Wilk p değeri 5.000'den fazla gözlemde yaklaşık olabilir.")
+        if not np.isfinite(shapiro_p):
+            notlar.append("Shapiro-Wilk normallik testi değerlendirilemedi.")
+        elif shapiro_p < alfa:
+            notlar.append(f"Uyarı: Shapiro-Wilk: {p_yaz(shapiro_p)}; "
+                          "artıkların normalliği varsayımı ihlal ediliyor.")
+        else:
+            notlar.append(f"Shapiro-Wilk: {p_yaz(shapiro_p)}; "
+                          "normallik varsayımına aykırılık saptanmadı.")
+        bp_p = het_breuschpagan(artik, tasarim)[1]
+        if not np.isfinite(bp_p):
+            notlar.append("Breusch-Pagan testi değerlendirilemedi.")
+        else:
+            onek = "Uyarı: " if bp_p < alfa else ""
+            notlar.append(f"{onek}Breusch-Pagan: {p_yaz(bp_p)}; "
+                          + ("değişen varyans var." if bp_p < alfa
+                             else "değişen varyans saptanmadı."))
+
+    vif_satirlari = []
+    for i, bilgi in enumerate(bilgiler[1:], 1):
+        vif = variance_inflation_factor(tasarim, i)
+        durum = "Ciddi uyarı" if vif > 10 else "Uyarı" if vif > 5 else "Uyarı yok"
+        vif_satirlari.append({"Değişken": bilgi[0], "VIF": vif, "Durum": durum})
+        if vif > 5:
+            notlar.append(f"{durum}: '{bilgi[0]}' için VIF = {sayi(vif)}; çoklu bağlantı var.")
+
+    def katsayi_tablosu(sonuc):
+        aralik = sonuc.conf_int()
+        satirlar = []
+        for i, (ad, x, kategori, _) in enumerate(bilgiler):
+            beta = (sonuc.params[i] * d[x].std() / d[y].std()
+                    if x is not None and kategori is None else np.nan)
+            satirlar.append({
+                "Değişken": ad, "B": sonuc.params[i], "Standart hata": sonuc.bse[i],
+                "Standartlaştırılmış β": beta, "t": sonuc.tvalues[i], "p": sonuc.pvalues[i],
+                "%95 GA alt": aralik[i, 0], "%95 GA üst": aralik[i, 1],
+            })
+        return pd.DataFrame(satirlar)
+
+    tablolar = {
+        "Model özeti": pd.DataFrame([{
+            "R²": model.rsquared, "Düzeltilmiş R²": model.rsquared_adj,
+            "F": model.fvalue, "F p": model.f_pvalue, "Gözlem": n, "Parametre": k,
+        }]),
+        "Katsayılar": katsayi_tablosu(model),
+        "VIF": pd.DataFrame(vif_satirlari),
+    }
+    yorum_modeli = model
+    if np.isfinite(bp_p) and bp_p < alfa:
+        yorum_modeli = model.get_robustcov_results(cov_type="HC3", use_t=True)
+        tablolar["HC3 dayanıklı katsayılar"] = katsayi_tablosu(yorum_modeli)
+        notlar.append("Değişen varyans nedeniyle yordayıcı yorumlarında HC3 dayanıklı sonuçlar kullanıldı.")
+        if not np.isfinite(yorum_modeli.bse).all() or not np.isfinite(yorum_modeli.pvalues).all():
+            notlar.append("Uyarı: Bazı HC3 sonuçları hesaplanamadı; yüksek kaldıraçlı gözlemleri kontrol edin.")
+    anlamli = bool(model.f_pvalue < alfa)
+    yorum = [
+        f"Model istatistiksel olarak {'anlamlı' if anlamli else 'anlamlı değil'} "
+        f"(F = {sayi(model.fvalue)}, {p_yaz(model.f_pvalue)}); "
+        f"'{y}' değişkenindeki varyansın %{sayi(model.rsquared * 100, 1)} kadarını açıklıyor."
+    ]
+    for i, (_, x, kategori, referans) in enumerate(bilgiler[1:], 1):
+        if np.isfinite(yorum_modeli.pvalues[i]) and yorum_modeli.pvalues[i] < alfa:
+            b = yorum_modeli.params[i]
+            if kategori is None:
+                yon = "artışla" if b > 0 else "azalışla"
+                yorum.append(f"'{x}' değişkenindeki 1 birimlik artış, diğer değişkenler sabitken "
+                             f"'{y}' değişkeninde ortalama {sayi(abs(b), 1)} birimlik {yon} ilişkilidir.")
+            else:
+                yon = "yüksek" if b > 0 else "düşük"
+                yorum.append(f"'{x}' için '{kategori}' grubu, '{referans}' gruba göre, "
+                             f"diğer değişkenler sabitken '{y}' bakımından ortalama "
+                             f"{sayi(abs(b), 1)} birim daha {yon}.")
+    yorum.append("Regresyon nedensellik göstermez.")
+    return {
+        "tur": "regresyon", "test": "Çoklu doğrusal regresyon (OLS)", "n": n,
+        "istatistik": f"F = {sayi(model.fvalue)}", "p": model.f_pvalue,
+        "anlamli": anlamli, "etki": f"R² = {sayi(model.rsquared, 3)}",
+        "yorum": yorum, "notlar": notlar, "tablolar": tablolar,
+        "x": ", ".join(xs), "y": y, "tahmin": tahmin, "artik": artik,
+        "shapiro_p": shapiro_p, "bp_p": bp_p,
+    }
 
 
 def on_test_son_test(df: pd.DataFrame, on: str, son: str, alfa: float = 0.05) -> dict:
