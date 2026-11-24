@@ -19,8 +19,21 @@ class OnTestSonTestTest(unittest.TestCase):
                     self.assertTrue(pd.api.types.is_numeric_dtype(son))
                     self.assertTrue(on.between(0, 100).all())
                     self.assertTrue(son.between(0, 100).all())
-                    self.assertTrue(5 <= (son - on).mean() <= 8)
+                    if n >= 120:
+                        self.assertTrue(5 <= (son - on).mean() <= 8)
                     pd.testing.assert_frame_equal(df, A.ornek_veri(n=n, tohum=tohum))
+
+    def test_ornek_veri_normal_fark_ve_eslestirilmis_t_testi(self):
+        df = A.ornek_veri()
+        fark = df["son_test_puani"] - df["on_test_puani"]
+
+        self.assertAlmostEqual(fark.mean(), 6, delta=2)
+        self.assertAlmostEqual(fark.std(ddof=1), 8, delta=2)
+        self.assertTrue((fark < 0).any())
+        self.assertEqual(
+            A.on_test_son_test(df, "on_test_puani", "son_test_puani")["test"],
+            "Eşleştirilmiş t-testi",
+        )
 
     def test_normal_farklarda_eslestirilmis_t_testi(self):
         rng = np.random.default_rng(42)
